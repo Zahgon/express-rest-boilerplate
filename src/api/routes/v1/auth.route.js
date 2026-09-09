@@ -1,5 +1,4 @@
-const express = require('express');
-const validate = require('express-validation');
+const validate = require('../../middlewares/validate');
 const controller = require('../../controllers/auth.controller');
 const oAuthLogin = require('../../middlewares/auth').oAuth;
 const {
@@ -11,7 +10,7 @@ const {
   passwordReset,
 } = require('../../validations/auth.validation');
 
-const router = express.Router();
+const routes = [];
 
 /**
  * @api {post} v1/auth/register Register
@@ -40,8 +39,9 @@ const router = express.Router();
  *
  * @apiError (Bad Request 400)  ValidationError  Some parameters may contain invalid values
  */
-router.route('/register')
-  .post(validate(register), controller.register);
+routes.push({
+  method: 'POST', url: '/register', preHandler: [validate(register)], handler: controller.register,
+});
 
 /**
  * @api {post} v1/auth/login Login
@@ -70,8 +70,9 @@ router.route('/register')
  * @apiError (Bad Request 400)  ValidationError  Some parameters may contain invalid values
  * @apiError (Unauthorized 401)  Unauthorized     Incorrect email or password
  */
-router.route('/login')
-  .post(validate(login), controller.login);
+routes.push({
+  method: 'POST', url: '/login', preHandler: [validate(login)], handler: controller.login,
+});
 
 /**
  * @api {post} v1/auth/refresh-token Refresh Token
@@ -92,14 +93,23 @@ router.route('/login')
  * @apiError (Bad Request 400)  ValidationError  Some parameters may contain invalid values
  * @apiError (Unauthorized 401)  Unauthorized     Incorrect email or refreshToken
  */
-router.route('/refresh-token')
-  .post(validate(refresh), controller.refresh);
+routes.push({
+  method: 'POST', url: '/refresh-token', preHandler: [validate(refresh)], handler: controller.refresh,
+});
 
-router.route('/send-password-reset')
-  .post(validate(sendPasswordReset), controller.sendPasswordReset);
+routes.push({
+  method: 'POST',
+  url: '/send-password-reset',
+  preHandler: [validate(sendPasswordReset)],
+  handler: controller.sendPasswordReset,
+});
 
-router.route('/reset-password')
-  .post(validate(passwordReset), controller.resetPassword);
+routes.push({
+  method: 'POST',
+  url: '/reset-password',
+  preHandler: [validate(passwordReset)],
+  handler: controller.resetPassword,
+});
 
 /**
  * @api {post} v1/auth/facebook Facebook Login
@@ -119,8 +129,12 @@ router.route('/reset-password')
  * @apiError (Bad Request 400)  ValidationError  Some parameters may contain invalid values
  * @apiError (Unauthorized 401)  Unauthorized    Incorrect access_token
  */
-router.route('/facebook')
-  .post(validate(oAuth), oAuthLogin('facebook'), controller.oAuth);
+routes.push({
+  method: 'POST',
+  url: '/facebook',
+  preHandler: [validate(oAuth), oAuthLogin('facebook')],
+  handler: controller.oAuth,
+});
 
 /**
  * @api {post} v1/auth/google Google Login
@@ -140,7 +154,13 @@ router.route('/facebook')
  * @apiError (Bad Request 400)  ValidationError  Some parameters may contain invalid values
  * @apiError (Unauthorized 401)  Unauthorized    Incorrect access_token
  */
-router.route('/google')
-  .post(validate(oAuth), oAuthLogin('google'), controller.oAuth);
+routes.push({
+  method: 'POST',
+  url: '/google',
+  preHandler: [validate(oAuth), oAuthLogin('google')],
+  handler: controller.oAuth,
+});
 
-module.exports = router;
+module.exports = async (fastify) => {
+  routes.forEach((route) => fastify.route(route));
+};

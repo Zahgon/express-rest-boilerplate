@@ -39,7 +39,7 @@
     "url": "git@github.com:danielfsousa/express-rest-es2017-boilerplate.git"
   },
   "keywords": [
-    "express",
+    "fastify",
     "node",
     "node.js",
     "mongodb",
@@ -62,18 +62,18 @@
     "starter project"
   ],
   "dependencies": {
+    "@fastify/compress": "^6.5.0",
+    "@fastify/cors": "^8.5.0",
+    "@fastify/formbody": "^7.4.0",
+    "@fastify/helmet": "^11.1.1",
+    "@fastify/static": "^6.12.0",
     "axios": "^0.21.1",
     "bcryptjs": "2.4.3",
     "bluebird": "^3.5.0",
-    "body-parser": "^1.17.0",
-    "compression": "^1.6.2",
-    "cors": "^2.8.3",
     "cross-env": "^7.0.3",
     "dotenv-safe": "^8.2.0",
     "email-templates": "^6.0.3",
-    "express": "^4.15.2",
-    "express-validation": "^1.0.2",
-    "helmet": "^4.6.0",
+    "fastify": "^4.28.1",
     "http-status": "^1.0.1",
     "joi": "^10.4.1",
     "jwt-simple": "0.5.6",

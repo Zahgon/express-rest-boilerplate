@@ -8,7 +8,7 @@ const LOGGED_USER = '_loggedUser';
 
 const handleJWT = (req, res, next, roles) => async (err, user, info) => {
   const error = err || info;
-  const logIn = Promise.promisify(req.logIn);
+  const logIn = Promise.promisify(req.raw.logIn);
   const apiError = new APIError({
     message: error ? error.message : 'Unauthorized',
     status: httpStatus.UNAUTHORIZED,
@@ -47,6 +47,12 @@ exports.LOGGED_USER = LOGGED_USER;
 exports.authorize = (roles = User.roles) => (req, res, next) => passport.authenticate(
   'jwt', { session: false },
   handleJWT(req, res, next, roles),
-)(req, res, next);
+)(req.raw, res.raw, next);
 
-exports.oAuth = (service) => passport.authenticate(service, { session: false });
+exports.oAuth = (service) => (req, res, next) => passport.authenticate(
+  service, { session: false },
+)(req.raw, res.raw, (err) => {
+  if (err) return next(err);
+  req.user = req.raw.user;
+  return next();
+});
