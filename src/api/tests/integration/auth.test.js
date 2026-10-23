@@ -22,6 +22,8 @@ const fakeOAuthRequest = () => Promise.resolve({
 });
 
 describe('Authentication API', () => {
+  before(() => app.started);
+
   let dbUser;
   let user;
   let refreshToken;
@@ -93,7 +95,7 @@ describe('Authentication API', () => {
 
   describe('POST /v1/auth/register', () => {
     it('should register a new user when request is ok', () => {
-      return request(app)
+      return request(app.server)
         .post('/v1/auth/register')
         .send(user)
         .expect(httpStatus.CREATED)
@@ -107,7 +109,7 @@ describe('Authentication API', () => {
     });
 
     it('should report error when email already exists', () => {
-      return request(app)
+      return request(app.server)
         .post('/v1/auth/register')
         .send(dbUser)
         .expect(httpStatus.CONFLICT)
@@ -123,7 +125,7 @@ describe('Authentication API', () => {
 
     it('should report error when the email provided is not valid', () => {
       user.email = 'this_is_not_an_email';
-      return request(app)
+      return request(app.server)
         .post('/v1/auth/register')
         .send(user)
         .expect(httpStatus.BAD_REQUEST)
@@ -138,7 +140,7 @@ describe('Authentication API', () => {
     });
 
     it('should report error when email and password are not provided', () => {
-      return request(app)
+      return request(app.server)
         .post('/v1/auth/register')
         .send({})
         .expect(httpStatus.BAD_REQUEST)
@@ -155,7 +157,7 @@ describe('Authentication API', () => {
 
   describe('POST /v1/auth/login', () => {
     it('should return an accessToken and a refreshToken when email and password matches', () => {
-      return request(app)
+      return request(app.server)
         .post('/v1/auth/login')
         .send(dbUser)
         .expect(httpStatus.OK)
@@ -169,7 +171,7 @@ describe('Authentication API', () => {
     });
 
     it('should report error when email and password are not provided', () => {
-      return request(app)
+      return request(app.server)
         .post('/v1/auth/login')
         .send({})
         .expect(httpStatus.BAD_REQUEST)
@@ -185,7 +187,7 @@ describe('Authentication API', () => {
 
     it('should report error when the email provided is not valid', () => {
       user.email = 'this_is_not_an_email';
-      return request(app)
+      return request(app.server)
         .post('/v1/auth/login')
         .send(user)
         .expect(httpStatus.BAD_REQUEST)
@@ -201,7 +203,7 @@ describe('Authentication API', () => {
 
     it("should report error when email and password don't match", () => {
       dbUser.password = 'xxx';
-      return request(app)
+      return request(app.server)
         .post('/v1/auth/login')
         .send(dbUser)
         .expect(httpStatus.UNAUTHORIZED)
@@ -217,7 +219,7 @@ describe('Authentication API', () => {
   describe('POST /v1/auth/facebook', () => {
     it('should create a new user and return an accessToken when user does not exist', () => {
       sandbox.stub(authProviders, 'facebook').callsFake(fakeOAuthRequest);
-      return request(app)
+      return request(app.server)
         .post('/v1/auth/facebook')
         .send({ access_token: '123' })
         .expect(httpStatus.OK)
@@ -233,7 +235,7 @@ describe('Authentication API', () => {
       dbUser.email = 'test@test.com';
       await User.create(dbUser);
       sandbox.stub(authProviders, 'facebook').callsFake(fakeOAuthRequest);
-      return request(app)
+      return request(app.server)
         .post('/v1/auth/facebook')
         .send({ access_token: '123' })
         .expect(httpStatus.OK)
@@ -246,7 +248,7 @@ describe('Authentication API', () => {
     });
 
     it('should return error when access_token is not provided', async () => {
-      return request(app)
+      return request(app.server)
         .post('/v1/auth/facebook')
         .expect(httpStatus.BAD_REQUEST)
         .then((res) => {
@@ -263,7 +265,7 @@ describe('Authentication API', () => {
   describe('POST /v1/auth/google', () => {
     it('should create a new user and return an accessToken when user does not exist', () => {
       sandbox.stub(authProviders, 'google').callsFake(fakeOAuthRequest);
-      return request(app)
+      return request(app.server)
         .post('/v1/auth/google')
         .send({ access_token: '123' })
         .expect(httpStatus.OK)
@@ -279,7 +281,7 @@ describe('Authentication API', () => {
       dbUser.email = 'test@test.com';
       await User.create(dbUser);
       sandbox.stub(authProviders, 'google').callsFake(fakeOAuthRequest);
-      return request(app)
+      return request(app.server)
         .post('/v1/auth/google')
         .send({ access_token: '123' })
         .expect(httpStatus.OK)
@@ -292,7 +294,7 @@ describe('Authentication API', () => {
     });
 
     it('should return error when access_token is not provided', async () => {
-      return request(app)
+      return request(app.server)
         .post('/v1/auth/google')
         .expect(httpStatus.BAD_REQUEST)
         .then((res) => {
@@ -309,7 +311,7 @@ describe('Authentication API', () => {
   describe('POST /v1/auth/refresh-token', () => {
     it('should return a new accessToken when refreshToken and email match', async () => {
       await RefreshToken.create(refreshToken);
-      return request(app)
+      return request(app.server)
         .post('/v1/auth/refresh-token')
         .send({ email: dbUser.email, refreshToken: refreshToken.token })
         .expect(httpStatus.OK)
@@ -322,7 +324,7 @@ describe('Authentication API', () => {
 
     it("should report error when email and refreshToken don't match", async () => {
       await RefreshToken.create(refreshToken);
-      return request(app)
+      return request(app.server)
         .post('/v1/auth/refresh-token')
         .send({ email: user.email, refreshToken: refreshToken.token })
         .expect(httpStatus.UNAUTHORIZED)
@@ -335,7 +337,7 @@ describe('Authentication API', () => {
     });
 
     it('should report error when email and refreshToken are not provided', () => {
-      return request(app)
+      return request(app.server)
         .post('/v1/auth/refresh-token')
         .send({})
         .expect(httpStatus.BAD_REQUEST)
@@ -358,7 +360,7 @@ describe('Authentication API', () => {
     it('should report error when the refreshToken is expired', async () => {
       await RefreshToken.create(expiredRefreshToken);
 
-      return request(app)
+      return request(app.server)
         .post('/v1/auth/refresh-token')
         .send({ email: dbUser.email, refreshToken: expiredRefreshToken.token })
         .expect(httpStatus.UNAUTHORIZED)
@@ -383,7 +385,7 @@ describe('Authentication API', () => {
         .stub(emailProvider, 'sendPasswordReset')
         .callsFake(() => Promise.resolve('email sent'));
 
-      return request(app)
+      return request(app.server)
         .post('/v1/auth/send-password-reset')
         .send({ email: dbUser.email })
         .expect(httpStatus.OK)
@@ -394,7 +396,7 @@ describe('Authentication API', () => {
 
     it("should report error when email doesn't match a user", async () => {
       await PasswordResetToken.create(resetToken);
-      return request(app)
+      return request(app.server)
         .post('/v1/auth/send-password-reset')
         .send({ email: user.email })
         .expect(httpStatus.UNAUTHORIZED)
@@ -407,7 +409,7 @@ describe('Authentication API', () => {
     });
 
     it('should report error when email is not provided', () => {
-      return request(app)
+      return request(app.server)
         .post('/v1/auth/send-password-reset')
         .send({})
         .expect(httpStatus.BAD_REQUEST)
@@ -429,7 +431,7 @@ describe('Authentication API', () => {
         .stub(emailProvider, 'sendPasswordChangeEmail')
         .callsFake(() => Promise.resolve('email sent'));
 
-      return request(app)
+      return request(app.server)
         .post('/v1/auth/reset-password')
         .send({
           email: dbUser.email,
@@ -443,7 +445,7 @@ describe('Authentication API', () => {
     });
     it("should report error when email and reset token doesn't match a user", async () => {
       await PasswordResetToken.create(resetToken);
-      return request(app)
+      return request(app.server)
         .post('/v1/auth/reset-password')
         .send({
           email: user.email,
@@ -460,7 +462,7 @@ describe('Authentication API', () => {
     });
 
     it('should report error when email is not provided', () => {
-      return request(app)
+      return request(app.server)
         .post('/v1/auth/reset-password')
         .send({ password: 'updatedPassword', resetToken: resetToken.resetToken })
         .expect(httpStatus.BAD_REQUEST)
@@ -474,7 +476,7 @@ describe('Authentication API', () => {
         });
     });
     it('should report error when reset token is not provided', () => {
-      return request(app)
+      return request(app.server)
         .post('/v1/auth/reset-password')
         .send({ email: dbUser.email, password: 'updatedPassword' })
         .expect(httpStatus.BAD_REQUEST)
@@ -488,7 +490,7 @@ describe('Authentication API', () => {
         });
     });
     it('should report error when password is not provided', () => {
-      return request(app)
+      return request(app.server)
         .post('/v1/auth/reset-password')
         .send({ email: dbUser.email, resetToken: resetToken.resetToken })
         .expect(httpStatus.BAD_REQUEST)
@@ -510,7 +512,7 @@ describe('Authentication API', () => {
       expect(expiredPasswordResetTokenObj.userEmail).to.be.equal(dbUser.email);
       expect(expiredPasswordResetTokenObj.expires).to.be.below(moment().toDate());
 
-      return request(app)
+      return request(app.server)
         .post('/v1/auth/reset-password')
         .send({
           email: dbUser.email,

@@ -28,6 +28,8 @@ async function format(user) {
 }
 
 describe('Users API', async () => {
+  before(() => app.started);
+
   let adminAccessToken;
   let userAccessToken;
   let dbUsers;
@@ -67,6 +69,12 @@ describe('Users API', async () => {
 
     await User.deleteMany({});
     await User.insertMany([dbUsers.branStark, dbUsers.jonSnow]);
+    // both inserts can land in the same millisecond; make Jon Snow strictly older so the
+    // createdAt ordering the pagination test relies on is deterministic
+    await User.collection.updateOne(
+      { email: dbUsers.jonSnow.email },
+      { $set: { createdAt: new Date(Date.now() - 60000) } },
+    );
     dbUsers.branStark.password = password;
     dbUsers.jonSnow.password = password;
     adminAccessToken = (await User.findAndGenerateToken(dbUsers.branStark)).accessToken;
@@ -75,7 +83,7 @@ describe('Users API', async () => {
 
   describe('POST /v1/users', () => {
     it('should create a new user when request is ok', () => {
-      return request(app)
+      return request(app.server)
         .post('/v1/users')
         .set('Authorization', `Bearer ${adminAccessToken}`)
         .send(admin)
@@ -87,7 +95,7 @@ describe('Users API', async () => {
     });
 
     it('should create a new user and set default role to "user"', () => {
-      return request(app)
+      return request(app.server)
         .post('/v1/users')
         .set('Authorization', `Bearer ${adminAccessToken}`)
         .send(user)
@@ -100,7 +108,7 @@ describe('Users API', async () => {
     it('should report error when email already exists', () => {
       user.email = dbUsers.branStark.email;
 
-      return request(app)
+      return request(app.server)
         .post('/v1/users')
         .set('Authorization', `Bearer ${adminAccessToken}`)
         .send(user)
@@ -118,7 +126,7 @@ describe('Users API', async () => {
     it('should report error when email is not provided', () => {
       delete user.email;
 
-      return request(app)
+      return request(app.server)
         .post('/v1/users')
         .set('Authorization', `Bearer ${adminAccessToken}`)
         .send(user)
@@ -136,7 +144,7 @@ describe('Users API', async () => {
     it('should report error when password length is less than 6', () => {
       user.password = '12345';
 
-      return request(app)
+      return request(app.server)
         .post('/v1/users')
         .set('Authorization', `Bearer ${adminAccessToken}`)
         .send(user)
@@ -152,7 +160,7 @@ describe('Users API', async () => {
     });
 
     it('should report error when logged user is not an admin', () => {
-      return request(app)
+      return request(app.server)
         .post('/v1/users')
         .set('Authorization', `Bearer ${userAccessToken}`)
         .send(user)
@@ -166,7 +174,7 @@ describe('Users API', async () => {
 
   describe('GET /v1/users', () => {
     it('should get all users', () => {
-      return request(app)
+      return request(app.server)
         .get('/v1/users')
         .set('Authorization', `Bearer ${adminAccessToken}`)
         .expect(httpStatus.OK)
@@ -188,7 +196,7 @@ describe('Users API', async () => {
     });
 
     it('should get all users with pagination', () => {
-      return request(app)
+      return request(app.server)
         .get('/v1/users')
         .set('Authorization', `Bearer ${adminAccessToken}`)
         .query({ page: 2, perPage: 1 })
@@ -204,7 +212,7 @@ describe('Users API', async () => {
     });
 
     it('should filter users', () => {
-      return request(app)
+      return request(app.server)
         .get('/v1/users')
         .set('Authorization', `Bearer ${adminAccessToken}`)
         .query({ email: dbUsers.jonSnow.email })
@@ -225,7 +233,7 @@ describe('Users API', async () => {
     });
 
     it('should report error when pagination\'s parameters are not a number', () => {
-      return request(app)
+      return request(app.server)
         .get('/v1/users')
         .set('Authorization', `Bearer ${adminAccessToken}`)
         .query({ page: '?', perPage: 'whaat' })
@@ -250,7 +258,7 @@ describe('Users API', async () => {
     });
 
     it('should report error if logged user is not an admin', () => {
-      return request(app)
+      return request(app.server)
         .get('/v1/users')
         .set('Authorization', `Bearer ${userAccessToken}`)
         .expect(httpStatus.FORBIDDEN)
@@ -266,7 +274,7 @@ describe('Users API', async () => {
       const id = (await User.findOne({}))._id;
       delete dbUsers.branStark.password;
 
-      return request(app)
+      return request(app.server)
         .get(`/v1/users/${id}`)
         .set('Authorization', `Bearer ${adminAccessToken}`)
         .expect(httpStatus.OK)
@@ -276,7 +284,7 @@ describe('Users API', async () => {
     });
 
     it('should report error "User does not exist" when user does not exists', () => {
-      return request(app)
+      return request(app.server)
         .get('/v1/users/56c787ccc67fc16ccc1a5e92')
         .set('Authorization', `Bearer ${adminAccessToken}`)
         .expect(httpStatus.NOT_FOUND)
@@ -287,7 +295,7 @@ describe('Users API', async () => {
     });
 
     it('should report error "User does not exist" when id is not a valid ObjectID', () => {
-      return request(app)
+      return request(app.server)
         .get('/v1/users/palmeiras1914')
         .set('Authorization', `Bearer ${adminAccessToken}`)
         .expect(httpStatus.NOT_FOUND)
@@ -300,7 +308,7 @@ describe('Users API', async () => {
     it('should report error when logged user is not the same as the requested one', async () => {
       const id = (await User.findOne({ email: dbUsers.branStark.email }))._id;
 
-      return request(app)
+      return request(app.server)
         .get(`/v1/users/${id}`)
         .set('Authorization', `Bearer ${userAccessToken}`)
         .expect(httpStatus.FORBIDDEN)
@@ -316,7 +324,7 @@ describe('Users API', async () => {
       delete dbUsers.branStark.password;
       const id = (await User.findOne(dbUsers.branStark))._id;
 
-      return request(app)
+      return request(app.server)
         .put(`/v1/users/${id}`)
         .set('Authorization', `Bearer ${adminAccessToken}`)
         .send(user)
@@ -332,7 +340,7 @@ describe('Users API', async () => {
       const id = (await User.findOne({}))._id;
       delete user.email;
 
-      return request(app)
+      return request(app.server)
         .put(`/v1/users/${id}`)
         .set('Authorization', `Bearer ${adminAccessToken}`)
         .send(user)
@@ -351,7 +359,7 @@ describe('Users API', async () => {
       const id = (await User.findOne({}))._id;
       user.password = '12345';
 
-      return request(app)
+      return request(app.server)
         .put(`/v1/users/${id}`)
         .set('Authorization', `Bearer ${adminAccessToken}`)
         .send(user)
@@ -367,7 +375,7 @@ describe('Users API', async () => {
     });
 
     it('should report error "User does not exist" when user does not exists', () => {
-      return request(app)
+      return request(app.server)
         .put('/v1/users/palmeiras1914')
         .set('Authorization', `Bearer ${adminAccessToken}`)
         .expect(httpStatus.NOT_FOUND)
@@ -380,7 +388,7 @@ describe('Users API', async () => {
     it('should report error when logged user is not the same as the requested one', async () => {
       const id = (await User.findOne({ email: dbUsers.branStark.email }))._id;
 
-      return request(app)
+      return request(app.server)
         .put(`/v1/users/${id}`)
         .set('Authorization', `Bearer ${userAccessToken}`)
         .expect(httpStatus.FORBIDDEN)
@@ -394,7 +402,7 @@ describe('Users API', async () => {
       const id = (await User.findOne({ email: dbUsers.jonSnow.email }))._id;
       const role = 'admin';
 
-      return request(app)
+      return request(app.server)
         .put(`/v1/users/${id}`)
         .set('Authorization', `Bearer ${userAccessToken}`)
         .send(admin)
@@ -411,7 +419,7 @@ describe('Users API', async () => {
       const id = (await User.findOne(dbUsers.branStark))._id;
       const { name } = user;
 
-      return request(app)
+      return request(app.server)
         .patch(`/v1/users/${id}`)
         .set('Authorization', `Bearer ${adminAccessToken}`)
         .send({ name })
@@ -426,7 +434,7 @@ describe('Users API', async () => {
       delete dbUsers.branStark.password;
       const id = (await User.findOne(dbUsers.branStark))._id;
 
-      return request(app)
+      return request(app.server)
         .patch(`/v1/users/${id}`)
         .set('Authorization', `Bearer ${adminAccessToken}`)
         .send()
@@ -437,7 +445,7 @@ describe('Users API', async () => {
     });
 
     it('should report error "User does not exist" when user does not exists', () => {
-      return request(app)
+      return request(app.server)
         .patch('/v1/users/palmeiras1914')
         .set('Authorization', `Bearer ${adminAccessToken}`)
         .expect(httpStatus.NOT_FOUND)
@@ -450,7 +458,7 @@ describe('Users API', async () => {
     it('should report error when logged user is not the same as the requested one', async () => {
       const id = (await User.findOne({ email: dbUsers.branStark.email }))._id;
 
-      return request(app)
+      return request(app.server)
         .patch(`/v1/users/${id}`)
         .set('Authorization', `Bearer ${userAccessToken}`)
         .expect(httpStatus.FORBIDDEN)
@@ -464,7 +472,7 @@ describe('Users API', async () => {
       const id = (await User.findOne({ email: dbUsers.jonSnow.email }))._id;
       const role = 'admin';
 
-      return request(app)
+      return request(app.server)
         .patch(`/v1/users/${id}`)
         .set('Authorization', `Bearer ${userAccessToken}`)
         .send({ role })
@@ -479,11 +487,11 @@ describe('Users API', async () => {
     it('should delete user', async () => {
       const id = (await User.findOne({}))._id;
 
-      return request(app)
+      return request(app.server)
         .delete(`/v1/users/${id}`)
         .set('Authorization', `Bearer ${adminAccessToken}`)
         .expect(httpStatus.NO_CONTENT)
-        .then(() => request(app).get('/v1/users'))
+        .then(() => request(app.server).get('/v1/users'))
         .then(async () => {
           const users = await User.find({});
           expect(users).to.have.lengthOf(1);
@@ -491,7 +499,7 @@ describe('Users API', async () => {
     });
 
     it('should report error "User does not exist" when user does not exists', () => {
-      return request(app)
+      return request(app.server)
         .delete('/v1/users/palmeiras1914')
         .set('Authorization', `Bearer ${adminAccessToken}`)
         .expect(httpStatus.NOT_FOUND)
@@ -504,7 +512,7 @@ describe('Users API', async () => {
     it('should report error when logged user is not the same as the requested one', async () => {
       const id = (await User.findOne({ email: dbUsers.branStark.email }))._id;
 
-      return request(app)
+      return request(app.server)
         .delete(`/v1/users/${id}`)
         .set('Authorization', `Bearer ${userAccessToken}`)
         .expect(httpStatus.FORBIDDEN)
@@ -519,7 +527,7 @@ describe('Users API', async () => {
     it('should get the logged user\'s info', () => {
       delete dbUsers.jonSnow.password;
 
-      return request(app)
+      return request(app.server)
         .get('/v1/users/profile')
         .set('Authorization', `Bearer ${userAccessToken}`)
         .expect(httpStatus.OK)
@@ -536,7 +544,7 @@ describe('Users API', async () => {
       // move clock forward by minutes set in config + 1 minute
       clock.tick((JWT_EXPIRATION * 60000) + 60000);
 
-      return request(app)
+      return request(app.server)
         .get('/v1/users/profile')
         .set('Authorization', `Bearer ${expiredAccessToken}`)
         .expect(httpStatus.UNAUTHORIZED)
